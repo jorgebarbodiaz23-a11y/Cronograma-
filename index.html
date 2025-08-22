@@ -763,6 +763,17 @@
             return Math.floor(diffDays / 7) + 1;
         }
 
+        // Calcular la posición de una fecha en el diagrama de Gantt
+        function calculatePositionInGantt(dateStr) {
+            const startDate = new Date('2025-08-04');
+            const targetDate = new Date(dateStr);
+            
+            const diffTime = targetDate - startDate;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            return diffDays;
+        }
+
         // Actualizar diagrama de Gantt
         function updateGanttChart() {
             const gantt = document.getElementById('gantt-chart');
@@ -809,16 +820,19 @@
             }
             
             // Agregar línea de "hoy" al diagrama
-            const currentWeek = getCurrentWeek();
-            if (currentWeek > 0 && currentWeek <= 16) {
+            const today = new Date();
+            if (today >= startDate && today <= endDate) {
+                const daysFromStart = Math.floor((today - startDate) / (1000 * 60 * 60 * 24));
+                const position = 300 + (daysFromStart * 60 / 7); // 300px para la columna de actividades + posición en días
+                
                 const todayLine = document.createElement('div');
                 todayLine.className = 'gantt-today-line';
-                todayLine.style.left = `${300 + (currentWeek - 1) * 60}px`;
+                todayLine.style.left = `${position}px`;
                 
                 const todayLabel = document.createElement('div');
                 todayLabel.className = 'gantt-today-label';
                 todayLabel.textContent = 'HOY';
-                todayLabel.style.left = `${300 + (currentWeek - 1) * 60 - 15}px`;
+                todayLabel.style.left = `${position - 15}px`;
                 
                 document.querySelector('.gantt-container').appendChild(todayLine);
                 document.querySelector('.gantt-container').appendChild(todayLabel);
@@ -850,38 +864,33 @@
                     gantt.appendChild(activityCell);
                     
                     // Calcular posición en el timeline
-                    const startDateObj = new Date(activity.startDate);
-                    const startWeek = Math.floor((startDateObj - new Date('2025-08-04')) / (7 * 24 * 60 * 60 * 1000)) + 1;
-                    const endWeek = Math.floor((new Date(activity.endDate) - new Date('2025-08-04')) / (7 * 24 * 60 * 60 * 1000)) + 1;
-                    const durationWeeks = endWeek - startWeek + 1;
+                    const startPos = calculatePositionInGantt(activity.startDate);
+                    const endPos = calculatePositionInGantt(activity.endDate);
+                    const durationDays = endPos - startPos + 1;
                     
-                    // Barras de progreso para cada semana
+                    // Crear celdas para cada semana
                     for (let week = 1; week <= 16; week++) {
-                        const cell = document.createElement('div');
-                        cell.className = 'gantt-week';
+                        const weekStartDay = (week - 1) * 7;
+                        const weekEndDay = weekStartDay + 6;
                         
-                        if (week >= startWeek && week <= endWeek) {
-                            const barContainer = document.createElement('div');
-                            barContainer.className = 'gantt-bar-container';
-                            
+                        const cell = document.createElement('div');
+                        cell.className = 'gantt-bar-container';
+                        
+                        // Si la actividad cae en esta semana
+                        if (startPos <= weekEndDay && endPos >= weekStartDay) {
                             const bar = document.createElement('div');
                             bar.className = `gantt-bar ${activityStatus[activity.id]}`;
                             if (activity.milestone) bar.className += ' milestone';
                             
-                            // Ajustar ancho y posición
-                            if (week === startWeek) {
-                                if (durationWeeks > 1) {
-                                    bar.style.width = `${durationWeeks * 60 - 10}px`;
-                                } else {
-                                    bar.style.width = '50px';
-                                }
-                                bar.style.left = '5px';
-                            } else {
-                                bar.style.display = 'none';
-                            }
+                            // Calcular posición y ancho dentro de esta semana
+                            const barStart = Math.max(0, startPos - weekStartDay);
+                            const barEnd = Math.min(6, endPos - weekStartDay);
+                            const barWidth = (barEnd - barStart + 1) * (60 / 7); // 60px por semana, 7 días
                             
-                            barContainer.appendChild(bar);
-                            cell.appendChild(barContainer);
+                            bar.style.width = `${barWidth}px`;
+                            bar.style.left = `${barStart * (60 / 7)}px`;
+                            
+                            cell.appendChild(bar);
                         }
                         
                         gantt.appendChild(cell);
@@ -918,7 +927,7 @@
         document.getElementById('filter-phase').addEventListener('change', filterByPhase);
 
         // Inicializar
-        document.addEventListener('DOMContentLoaded', () {
+        document.addEventListener('DOMContentLoaded', function() {
             setupActivitySelects();
             loadProgress();
         });
