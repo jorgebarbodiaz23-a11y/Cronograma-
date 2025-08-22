@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Motor de Seguimiento - Proyecto Vial</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        .status-container {
+            display: flex;
+            margin-bottom: 20px;
+            gap: 15px;
+        }
+        .status-card {
+            flex: 1;
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .status-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .completed { color: #27ae60; }
+        .in-progress { color: #f39c12; }
+        .not-started { color: #e74c3c; }
+        
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        button {
+            padding: 8px 15px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+            position: sticky;
+            top: 0;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        
+        .status-select {
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-weight: bold;
+        }
+        .status-option-completed {
+            background-color: #d5f5e3;
+        }
+        .status-option-in-progress {
+            background-color: #fdebd0;
+        }
+        .status-option-not-started {
+            background-color: #fadbd8;
+        }
+        
+        .gantt-container {
+            overflow-x: auto;
+            margin-bottom: 40px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .gantt {
+            display: grid;
+            grid-template-columns: 300px repeat(16, 1fr);
+            min-width: 1800px;
+        }
+        .gantt-header {
+            background-color: #3498db;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            border-right: 1px solid white;
+            position: sticky;
+            left: 0;
+            z-index: 2;
+        }
+        .gantt-activity {
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            position: sticky;
+            left: 0;
+            background: white;
+            z-index: 1;
+            font-weight: 500;
+        }
+        .gantt-activity.phase-header {
+            background-color: #e8f4fc;
+            font-weight: bold;
+        }
+        .gantt-bar-container {
+            position: relative;
+            height: 40px;
+            border-bottom: 1px solid #eee;
+        }
+        .gantt-bar {
+            height: 20px;
+            margin-top: 10px;
+            border-radius: 4px;
+            position: absolute;
+            top: 0;
+        }
+        .gantt-bar.completed {
+            background-color: #27ae60;
+        }
+        .gantt-bar.in-progress {
+            background-color: #f39c12;
+            background-image: repeating-linear-gradient(
+                -45deg,
+                transparent,
+                transparent 10px,
+                rgba(255,255,255,0.3) 10px,
+                rgba(255,255,255,0.3) 20px
+            );
+        }
+        .gantt-bar.not-started {
+            background-color: #e74c3c;
+            opacity: 0.3;
+        }
+        .gantt-bar.milestone {
+            background-color: #9b59b6;
+            width: 10px;
+            height: 30px;
+            margin-top: 5px;
+            border-radius: 0;
+        }
+        .gantt-week {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border-right: 1px solid #eee;
+            min-width: 60px;
+        }
+        .gantt-week-label {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #2c3e50;
+        }
+        .gantt-date-range {
+            font-size: 10px;
+            color: #666;
+            text-align: center;
+        }
+        .gantt-today-line {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: #e74c3c;
+            z-index: 1;
+        }
+        .gantt-today-label {
+            position: absolute;
+            top: -20px;
+            background-color: #e74c3c;
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+        
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+        }
+        
+        .progress-container {
+            width: 100%;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+        .progress-bar {
+            height: 10px;
+            border-radius: 4px;
+            background-color: #3498db;
+            transition: width 0.3s;
+        }
+        
+        @media (max-width: 768px) {
+            .status-container {
+                flex-direction: column;
+            }
+            .controls {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Motor de Seguimiento - Proyecto Vial</h1>
+        <h2>Cronograma: 4 de agosto - 21 de noviembre 2025</h2>
+        
+        <div class="status-container">
+            <div class="status-card">
+                <h3>Avance Total</h3>
+                <div class="status-value" id="total-progress">0%</div>
+                <div class="progress-container">
+                    <div class="progress-bar" id="total-progress-bar" style="width: 0%"></div>
+                </div>
+            </div>
+            <div class="status-card">
+                <h3>Completadas</h3>
+                <div class="status-value completed" id="completed-count">0</div>
+                <div>Actividades</div>
+            </div>
+            <div class="status-card">
+                <h3>En Proceso</h3>
+                <div class="status-value in-progress" id="in-progress-count">0</div>
+                <div>Actividades</div>
+            </div>
+            <div class="status-card">
+                <h3>Pendientes</h3>
+                <div class="status-value not-started" id="not-started-count">0</div>
+                <div>Actividades</div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <div>
+                <button id="save-btn">Guardar Progreso</button>
+                <button id="reset-btn">Reiniciar Todo</button>
+            </div>
+            <div>
+                <span>Filtrar por fase: </span>
+                <select id="filter-phase">
+                    <option value="all">Todas las fases</option>
+                    <option value="1">Fase 1: Planificación</option>
+                    <option value="2">Fase 2: Diseño Geométrico</option>
+                    <option value="3">Fase 3: Drenaje Superficial</option>
+                    <option value="4">Fase 4: Integración</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #27ae60;"></div>
+                <span>Completado</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #f39c12;"></div>
+                <span>En Proceso</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #e74c3c;"></div>
+                <span>No Iniciado</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #9b59b6; width:10px; border-radius:0;"></div>
+                <span>Hito/Presentación</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background-color: #e74c3c; width:2px;"></div>
+                <span>Hoy</span>
+            </div>
+        </div>
+        
+        <h2>Diagrama de Gantt</h2>
+        <div class="gantt-container">
+            <div class="gantt" id="gantt-chart">
+                <!-- Gantt chart will be generated here by JavaScript -->
+            </div>
+        </div>
+        
+        <h2>Detalle de Actividades</h2>
+        <table id="activities-table">
+            <thead>
+                <tr>
+                    <th>Fase</th>
+                    <th>Semana</th>
+                    <th>Fecha</th>
+                    <th>Actividad</th>
+                    <th>Detalles</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Fase 1: Planificación -->
+                <tr data-phase="1">
+                    <td rowspan="6">Fase 1: Planificación<br>(4 ago - 29 ago 2025)</td>
+                    <td>1</td>
+                    <td>4-8 ago</td>
+                    <td>Formación de grupos y cronograma</td>
+                    <td>- Revisión de documentos base<br>- Definición de alcance y recursos<br>- Elaboración de cronograma</td>
+                    <td>
+                        <select class="status-select" data-activity-id="1">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="1">
+                    <td>2</td>
+                    <td>11-15 ago</td>
+                    <td>Levantamiento topográfico inicial</td>
+                    <td>- Recorrido a pie para identificar PE<br>- Materialización de mojones</td>
+                    <td>
+                        <select class="status-select" data-activity-id="2">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En process</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="1">
+                    <td>3</td>
+                    <td>18-22 ago</td>
+                    <td>Trazado del eje aproximado</td>
+                    <td>- Marcación provisional en tangentes/curvas<br>- Toma de muestras de subrasante</td>
+                    <td>
+                        <select class="status-select" data-activity-id="3">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="1">
+                    <td>4</td>
+                    <td>25 ago</td>
+                    <td>Primera entrega</td>
+                    <td>- Presentación de avances iniciales</td>
+                    <td>
+                        <select class="status-select" data-activity-id="18">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="1">
+                    <td>4</td>
+                    <td>26 ago</td>
+                    <td>Ensayos de laboratorio</td>
+                    <td>- Granulometría y Límites de Atterberg<br>- Ensayos PCV (si aplica)</td>
+                    <td>
+                        <select class="status-select" data-activity-id="4">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="1">
+                    <td>4</td>
+                    <td>27-29 ago</td>
+                    <td>Análisis de datos y clasificación</td>
+                    <td>- Clasificación USCS<br>- Evaluación de CBR</td>
+                    <td>
+                        <select class="status-select" data-activity-id="5">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                
+                <!-- Fase 2: Diseño Geométrico -->
+                <tr data-phase="2">
+                    <td rowspan="8">Fase 2: Diseño Geométrico<br>(1 sep - 26 sep 2025)</td>
+                    <td>5</td>
+                    <td>1-2 sep</td>
+                    <td>Diseño en planta del eje (antes entrega)</td>
+                    <td>- Ajuste de curvas horizontales<br>- Definición de zonas de cruce</td>
+                    <td>
+                        <select class="status-select" data-activity-id="6">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="2">
+                    <td>5</td>
+                    <td>3 sep</td>
+                    <td>Segunda entrega</td>
+                    <td>- Presentación de avances de diseño</td>
+                    <td>
+                        <select class="status-select" data-activity-id="19">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="2">
+                    <td>5</td>
+                    <td>4-5 sep</td>
+                    <td>Diseño en planta del eje (después entrega)</td>
+                    <td>- Ajustes finales</td>
+                    <td>
+                        <select class="status-select" data-activity-id="6">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="2">
+                    <td>6</td>
+                    <td>8-12 sep</td>
+                    <td>Perfil longitudinal y secciones</td>
+                    <td>- Corrección de rasante<br>- Diseño de transiciones</td>
+                    <td>
+                        <select class="status-select" data-activity-id="7">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="2">
+                    <td>7</td>
+                    <td>15 sep</td>
+                    <td>Tercera entrega</td>
+                    <td>- Presentación de diseño preliminar</td>
+                    <td>
+                        <select class="status-select" data-activity-id="20">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="2">
+                    <td>7</td>
+                    <td>16-19 sep</td>
+                    <td>Evaluación de subrasante</td>
+                    <td>- Determinación de CBR<br>- Identificación suelos expansivos</td>
+                    <td>
+                        <select class="status-select" data-activity-id="8">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="2">
+                    <td>8</td>
+                    <td>22-26 sep</td>
+                    <td>Planos preliminares</td>
+                    <td>- Planta-perfil con abscisas<br>- Modulación de placas-huella</td>
+                    <td>
+                        <select class="status-select" data-activity-id="9">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                
+                <!-- Fase 3: Drenaje Superficial -->
+                <tr data-phase="3">
+                    <td rowspan="4">Fase 3: Drenaje Superficial<br>(29 sep - 24 oct 2025)</td>
+                    <td>9</td>
+                    <td>29 sep-3 oct</td>
+                    <td>Cálculo de intensidad de lluvia</td>
+                    <td>- Análisis datos meteorológicos<br>- Aplicación metodología R1-R4</td>
+                    <td>
+                        <select class="status-select" data-activity-id="10">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="3">
+                    <td>10</td>
+                    <td>6-10 oct</td>
+                    <td>Diseño hidráulico de berma-cunetas</td>
+                    <td>- Dimensionamiento<br>- Cálculo de caudales</td>
+                    <td>
+                        <select class="status-select" data-activity-id="11">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="3">
+                    <td>11</td>
+                    <td>13-17 oct</td>
+                    <td>Ubicación de alcantarillas</td>
+                    <td>- Localización en abscisas críticas<br>- Diseño de alcantarilla tipo</td>
+                    <td>
+                        <select class="status-select" data-activity-id="12">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="3">
+                    <td>12</td>
+                    <td>20-24 oct</td>
+                    <td>Planos de drenaje</td>
+                    <td>- Integración con diseño geométrico</td>
+                    <td>
+                        <select class="status-select" data-activity-id="13">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                
+                <!-- Fase 4: Integración -->
+                <tr data-phase="4">
+                    <td rowspan="4">Fase 4: Integración<br>(27 oct - 21 nov 2025)</td>
+                    <td>13</td>
+                    <td>27-31 oct</td>
+                    <td>Revisión de compatibilidad</td>
+                    <td>- Ajuste de modulación en curvas críticas</td>
+                    <td>
+                        <select class="status-select" data-activity-id="14">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="4">
+                    <td>14</td>
+                    <td>3-7 nov</td>
+                    <td>Elaboración de cartas</td>
+                    <td>- Carteras de localización</td>
+                    <td>
+                        <select class="status-select" data-activity-id="15">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="4">
+                    <td>15</td>
+                    <td>10-14 nov</td>
+                    <td>Redacción de memoria técnica</td>
+                    <td>- Descripción de metodologías y resultados</td>
+                    <td>
+                        <select class="status-select" data-activity-id="16">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr data-phase="4">
+                    <td>16</td>
+                    <td>17-21 nov</td>
+                    <td>Entrega final</td>
+                    <td>- Planos definitivos + documentación</td>
+                    <td>
+                        <select class="status-select" data-activity-id="17">
+                            <option value="not-started" class="status-option-not-started">No iniciado</option>
+                            <option value="in-progress" class="status-option-in-progress">En proceso</option>
+                            <option value="completed" class="status-option-completed">Completado</option>
+                        </select>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        // Datos del proyecto con fechas exactas
+        const activities = [
+            // Fase 1
+            { id: 1, phase: 1, week: 1, startDate: '2025-08-04', endDate: '2025-08-08', name: 'Formación de grupos y cronograma', details: '- Revisión de documentos base<br>- Definición de alcance y recursos<br>- Elaboración de cronograma', duration: 1 },
+            { id: 2, phase: 1, week: 2, startDate: '2025-08-11', endDate: '2025-08-15', name: 'Levantamiento topográfico inicial', details: '- Recorrido a pie para identificar PE<br>- Materialización de mojones', duration: 1 },
+            { id: 3, phase: 1, week: 3, startDate: '2025-08-18', endDate: '2025-08-22', name: 'Trazado del eje aproximado', details: '- Marcación provisional en tangentes/curvas<br>- Toma de muestras de subrasante', duration: 1 },
+            { id: 18, phase: 1, week: 4, startDate: '2025-08-25', endDate: '2025-08-25', name: 'Primera entrega', details: '- Presentación de avances iniciales', duration: 1, milestone: true },
+            { id: 4, phase: 1, week: 4, startDate: '2025-08-26', endDate: '2025-08-26', name: 'Ensayos de laboratorio', details: '- Granulometría y Límites de Atterberg<br>- Ensayos PCV (si aplica)', duration: 0.2 },
+            { id: 5, phase: 1, week: 4, startDate: '2025-08-27', endDate: '2025-08-29', name: 'Análisis de datos y clasificación', details: '- Clasificación USCS<br>- Evaluación de CBR', duration: 0.6 },
+            
+            // Fase 2
+            { id: 6, phase: 2, week: 5, startDate: '2025-09-01', endDate: '2025-09-02', name: 'Diseño en planta del eje (antes entrega)', details: '- Ajuste de curvas horizontales<br>- Definición de zonas de cruce', duration: 0.4 },
+            { id: 19, phase: 2, week: 5, startDate: '2025-09-03', endDate: '2025-09-03', name: 'Segunda entrega', details: '- Presentación de avances de diseño', duration: 1, milestone: true },
+            { id: 6, phase: 2, week: 5, startDate: '2025-09-04', endDate: '2025-09-05', name: 'Diseño en planta del eje (después entrega)', details: '- Ajustes finales', duration: 0.4 },
+            { id: 7, phase: 2, week: 6, startDate: '2025-09-08', endDate: '2025-09-12', name: 'Perfil longitudinal y secciones', details: '- Corrección de rasante<br>- Diseño de transiciones', duration: 1 },
+            { id: 20, phase: 2, week: 7, startDate: '2025-09-15', endDate: '2025-09-15', name: 'Tercera entrega', details: '- Presentación de diseño preliminar', duration: 1, milestone: true },
+            { id: 8, phase: 2, week: 7, startDate: '2025-09-16', endDate: '2025-09-19', name: 'Evaluación de subrasante', details: '- Determinación de CBR<br>- Identificación suelos expansivos', duration: 0.8 },
+            { id: 9, phase: 2, week: 8, startDate: '2025-09-22', endDate: '2025-09-26', name: 'Planos preliminares', details: '- Planta-perfil con abscisas<br>- Modulación de placas-huella', duration: 1 },
+            
+            // Fase 3
+            { id: 10, phase: 3, week: 9, startDate: '2025-09-29', endDate: '2025-10-03', name: 'Cálculo de intensidad de lluvia', details: '- Análisis datos meteorológicos<br>- Aplicación metodología R1-R4', duration: 1 },
+            { id: 11, phase: 3, week: 10, startDate: '2025-10-06', endDate: '2025-10-10', name: 'Diseño hidráulico de berma-cunetas', details: '- Dimensionamiento<br>- Cálculo de caudales', duration: 1 },
+            { id: 12, phase: 3, week: 11, startDate: '2025-10-13', endDate: '2025-10-17', name: 'Ubicación de alcantarillas', details: '- Localización en abscisas críticas<br>- Diseño de alcantarilla tipo', duration: 1 },
+            { id: 13, phase: 3, week: 12, startDate: '2025-10-20', endDate: '2025-10-24', name: 'Planos de drenaje', details: '- Integración con diseño geométrico', duration: 1 },
+            
+            // Fase 4
+            { id: 14, phase: 4, week: 13, startDate: '2025-10-27', endDate: '2025-10-31', name: 'Revisión de compatibilidad', details: '- Ajuste de modulación en curvas críticas', duration: 1 },
+            { id: 15, phase: 4, week: 14, startDate: '2025-11-03', endDate: '2025-11-07', name: 'Elaboración de cartas', details: '- Carteras de localización', duration: 1 },
+            { id: 16, phase: 4, week: 15, startDate: '2025-11-10', endDate: '2025-11-14', name: 'Redacción de memoria técnica', details: '- Descripción de metodologías y resultados', duration: 1 },
+            { id: 17, phase: 4, week: 16, startDate: '2025-11-17', endDate: '2025-11-21', name: 'Entrega final', details: '- Planos definitivos + documentación', duration: 1, milestone: true }
+        ];
+
+        // Inicializar estado de las actividades
+        let activityStatus = {};
+        activities.forEach(activity => {
+            activityStatus[activity.id] = 'not-started';
+        });
+
+        // Cargar estado guardado si existe
+        function loadProgress() {
+            const savedProgress = localStorage.getItem('projectProgress');
+            if (savedProgress) {
+                activityStatus = JSON.parse(savedProgress);
+                
+                // Actualizar selects en la tabla
+                document.querySelectorAll('.status-select').forEach(select => {
+                    const activityId = parseInt(select.getAttribute('data-activity-id'));
+                    if (activityId && activityStatus[activityId]) {
+                        select.value = activityStatus[activityId];
+                    }
+                });
+            }
+            updateProgress();
+            updateGanttChart();
+        }
+
+        // Guardar progreso
+        function saveProgress() {
+            localStorage.setItem('projectProgress', JSON.stringify(activityStatus));
+            alert('Progreso guardado correctamente');
+        }
+
+        // Reiniciar progreso
+        function resetProgress() {
+            if (confirm('¿Estás seguro de que deseas reiniciar todo el progreso?')) {
+                activities.forEach(activity => {
+                    activityStatus[activity.id] = 'not-started';
+                });
+                
+                document.querySelectorAll('.status-select').forEach(select => {
+                    select.value = 'not-started';
+                });
+                
+                updateProgress();
+                updateGanttChart();
+                localStorage.removeItem('projectProgress');
+            }
+        }
+
+        // Actualizar estado de una actividad
+        function updateStatus(selectElement, activityId) {
+            activityStatus[activityId] = selectElement.value;
+            updateProgress();
+            updateGanttChart();
+        }
+
+        // Actualizar estadísticas y gráficos
+        function updateProgress() {
+            // Calcular estadísticas
+            let completed = 0;
+            let inProgress = 0;
+            let notStarted = 0;
+            
+            for (const id in activityStatus) {
+                if (activityStatus[id] === 'completed') completed++;
+                else if (activityStatus[id] === 'in-progress') inProgress++;
+                else notStarted++;
+            }
+            
+            const total = activities.length;
+            const progressPercent = Math.round((completed / total) * 100);
+            
+            // Actualizar UI
+            document.getElementById('completed-count').textContent = completed;
+            document.getElementById('in-progress-count').textContent = inProgress;
+            document.getElementById('not-started-count').textContent = notStarted;
+            document.getElementById('total-progress').textContent = `${progressPercent}%`;
+            document.getElementById('total-progress-bar').style.width = `${progressPercent}%`;
+        }
+
+        // Formatear fecha corta (dd/mm)
+        function formatShortDate(dateStr) {
+            const date = new Date(dateStr);
+            return `${date.getDate().toString().padStart(2, '0')}/${(date.getMonth()+1).toString().padStart(2, '0')}`;
+        }
+
+        // Calcular la semana actual del proyecto
+        function getCurrentWeek() {
+            const today = new Date();
+            const startDate = new Date('2025-08-04');
+            
+            if (today < startDate) return 0; // Proyecto no iniciado
+            if (today > new Date('2025-11-21')) return 17; // Proyecto finalizado
+            
+            const diffTime = today - startDate;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return Math.floor(diffDays / 7) + 1;
+        }
+
+        // Actualizar diagrama de Gantt
+        function updateGanttChart() {
+            const gantt = document.getElementById('gantt-chart');
+            gantt.innerHTML = '';
+            
+            // Limpiar líneas de "hoy" anteriores
+            document.querySelectorAll('.gantt-today-line, .gantt-today-label').forEach(el => el.remove());
+            
+            // Crear encabezado de actividades
+            const activityHeader = document.createElement('div');
+            activityHeader.className = 'gantt-header';
+            activityHeader.textContent = 'Actividades';
+            gantt.appendChild(activityHeader);
+            
+            // Generar encabezados de semanas
+            const startDate = new Date('2025-08-04');
+            const endDate = new Date('2025-11-21');
+            
+            let currentDate = new Date(startDate);
+            let weekCount = 1;
+            
+            while (currentDate <= endDate) {
+                const weekStart = new Date(currentDate);
+                const weekEnd = new Date(currentDate);
+                weekEnd.setDate(weekEnd.getDate() + 4); // Semana laboral de 5 días
+                
+                const weekHeader = document.createElement('div');
+                weekHeader.className = 'gantt-header';
+                
+                const weekLabel = document.createElement('div');
+                weekLabel.className = 'gantt-week-label';
+                weekLabel.textContent = `S${weekCount}`;
+                
+                const dateRange = document.createElement('div');
+                dateRange.className = 'gantt-date-range';
+                dateRange.textContent = `${formatShortDate(weekStart)}-${formatShortDate(weekEnd)}`;
+                
+                weekHeader.appendChild(weekLabel);
+                weekHeader.appendChild(dateRange);
+                gantt.appendChild(weekHeader);
+                
+                currentDate.setDate(currentDate.getDate() + 7); // Siguiente semana
+                weekCount++;
+            }
+            
+            // Agregar línea de "hoy" al diagrama
+            const currentWeek = getCurrentWeek();
+            if (currentWeek > 0 && currentWeek <= 16) {
+                const todayLine = document.createElement('div');
+                todayLine.className = 'gantt-today-line';
+                todayLine.style.left = `${300 + (currentWeek - 1) * 60}px`;
+                
+                const todayLabel = document.createElement('div');
+                todayLabel.className = 'gantt-today-label';
+                todayLabel.textContent = 'HOY';
+                todayLabel.style.left = `${300 + (currentWeek - 1) * 60 - 15}px`;
+                
+                document.querySelector('.gantt-container').appendChild(todayLine);
+                document.querySelector('.gantt-container').appendChild(todayLabel);
+            }
+            
+            // Agrupar actividades por fase
+            const phases = [
+                { id: 1, name: 'Fase 1: Planificación', activities: activities.filter(a => a.phase === 1) },
+                { id: 2, name: 'Fase 2: Diseño Geométrico', activities: activities.filter(a => a.phase === 2) },
+                { id: 3, name: 'Fase 3: Drenaje Superficial', activities: activities.filter(a => a.phase === 3) },
+                { id: 4, name: 'Fase 4: Integración', activities: activities.filter(a => a.phase === 4) }
+            ];
+            
+            // Actividades por fase
+            phases.forEach(phase => {
+                // Encabezado de fase
+                const phaseHeader = document.createElement('div');
+                phaseHeader.className = 'gantt-activity phase-header';
+                phaseHeader.textContent = phase.name;
+                phaseHeader.style.gridColumn = '1 / -1';
+                gantt.appendChild(phaseHeader);
+                
+                // Actividades de la fase
+                phase.activities.forEach(activity => {
+                    // Nombre de la actividad
+                    const activityCell = document.createElement('div');
+                    activityCell.className = 'gantt-activity';
+                    activityCell.textContent = activity.name;
+                    gantt.appendChild(activityCell);
+                    
+                    // Calcular posición en el timeline
+                    const startDateObj = new Date(activity.startDate);
+                    const startWeek = Math.floor((startDateObj - new Date('2025-08-04')) / (7 * 24 * 60 * 60 * 1000)) + 1;
+                    const endWeek = Math.floor((new Date(activity.endDate) - new Date('2025-08-04')) / (7 * 24 * 60 * 60 * 1000)) + 1;
+                    const durationWeeks = endWeek - startWeek + 1;
+                    
+                    // Barras de progreso para cada semana
+                    for (let week = 1; week <= 16; week++) {
+                        const cell = document.createElement('div');
+                        cell.className = 'gantt-week';
+                        
+                        if (week >= startWeek && week <= endWeek) {
+                            const barContainer = document.createElement('div');
+                            barContainer.className = 'gantt-bar-container';
+                            
+                            const bar = document.createElement('div');
+                            bar.className = `gantt-bar ${activityStatus[activity.id]}`;
+                            if (activity.milestone) bar.className += ' milestone';
+                            
+                            // Ajustar ancho y posición
+                            if (week === startWeek) {
+                                if (durationWeeks > 1) {
+                                    bar.style.width = `${durationWeeks * 60 - 10}px`;
+                                } else {
+                                    bar.style.width = '50px';
+                                }
+                                bar.style.left = '5px';
+                            } else {
+                                bar.style.display = 'none';
+                            }
+                            
+                            barContainer.appendChild(bar);
+                            cell.appendChild(barContainer);
+                        }
+                        
+                        gantt.appendChild(cell);
+                    }
+                });
+            });
+        }
+
+        // Filtrar tabla por fase
+        function filterByPhase() {
+            const phase = document.getElementById('filter-phase').value;
+            document.querySelectorAll('#activities-table tbody tr').forEach(row => {
+                if (phase === 'all' || row.getAttribute('data-phase') === phase) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        // Configurar eventos para los selects
+        function setupActivitySelects() {
+            document.querySelectorAll('.status-select').forEach(select => {
+                const activityId = parseInt(select.getAttribute('data-activity-id'));
+                select.addEventListener('change', function() {
+                    updateStatus(this, activityId);
+                });
+            });
+        }
+
+        // Event listeners
+        document.getElementById('save-btn').addEventListener('click', saveProgress);
+        document.getElementById('reset-btn').addEventListener('click', resetProgress);
+        document.getElementById('filter-phase').addEventListener('change', filterByPhase);
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () {
+            setupActivitySelects();
+            loadProgress();
+        });
+    </script>
+</body>
+</html>
